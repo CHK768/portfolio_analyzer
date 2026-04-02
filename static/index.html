@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --primary-dark: #1557b0;
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --text: #202124;
+      --text2: #5f6368;
+      --border: #e0e0e0;
+      --green: #34a853;
+      --red: #ea4335;
+      --yellow: #fbbc04;
+      --r: 12px;
+      --shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .hdr h1 { font-size: 19px; font-weight: 700; }
+    .hdr-badge { background: var(--bg); color: var(--text2); font-size: 11px; padding: 2px 9px; border-radius: 20px; border: 1px solid var(--border); }
+
+    /* ── Layout ── */
+    .layout { display: flex; gap: 18px; padding: 18px 22px; max-width: 1700px; margin: 0 auto; align-items: flex-start; }
+    .sidebar { width: 310px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
+    .main { flex: 1; min-width: 0; }
+
+    /* ── Card ── */
+    .card { background: var(--card); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
+    .card-title { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 14px; }
+
+    /* ── Stock rows ── */
+    .srow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; position: relative; }
+    .code-wrap { flex: 1; position: relative; }
+    .code-input, .wt-input {
+      width: 100%; padding: 8px 11px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 13px; outline: none; transition: border-color .15s;
+    }
+    .code-input:focus, .wt-input:focus { border-color: var(--primary); }
+    .wt-input { width: 66px; text-align: right; }
+    .wt-sfx { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+    .del-btn { width: 26px; height: 26px; border: none; background: none; cursor: pointer; color: var(--text2); font-size: 17px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background .1s, color .1s; flex-shrink: 0; }
+    .del-btn:hover { background: #fce8e6; color: var(--red); }
+    .del-btn:disabled { opacity: .3; cursor: default; }
+    .row-acts { display: flex; gap: 6px; margin-top: 2px; align-items: center; }
+    .lnk { font-size: 12px; color: var(--primary); background: none; border: none; cursor: pointer; padding: 3px 0; }
+    .lnk:hover { opacity: .8; }
+    .lnk.grey { color: var(--text2); margin-left: auto; }
+    .wt-total { font-size: 11px; color: var(--text2); text-align: right; margin-top: 6px; min-height: 16px; }
+    .wt-total.ok { color: var(--green); }
+    .wt-total.warn { color: var(--yellow); }
+
+    /* ── Autocomplete ── */
+    .ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); max-height: 180px; overflow-y: auto; z-index: 300; margin-top: 3px; display: none; }
+    .ac-item { padding: 7px 11px; cursor: pointer; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+    .ac-item:hover, .ac-item.active { background: #eef4ff; }
+    .ac-code { font-weight: 600; flex-shrink: 0; }
+    .ac-name { color: var(--text2); font-size: 11px; }
+
+    /* ── Date inputs ── */
+    .drow { display: flex; align-items: center; gap: 8px; }
+    .drow label { font-size: 12px; color: var(--text2); width: 36px; flex-shrink: 0; }
+    .drow input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+    .drow input:focus { border-color: var(--primary); }
+    .dgap { margin: 6px 0; }
+
+    /* ── Option rows ── */
+    .opt-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f5f5f5; }
+    .opt-row:last-child { border-bottom: none; }
+    .opt-label { font-size: 13px; }
+    .opt-sub { font-size: 11px; color: var(--text2); }
+    select { padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; outline: none; background: var(--card); cursor: pointer; }
+
+    /* ── Toggle ── */
+    .toggle { width: 38px; height: 21px; background: #ccc; border-radius: 11px; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; border: none; }
+    .toggle.on { background: var(--primary); }
+    .toggle::after { content: ''; width: 17px; height: 17px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: left .18s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+    .toggle.on::after { left: 19px; }
+
+    /* ── Analyze btn ── */
+    .ana-btn { width: 100%; padding: 13px; background: var(--primary); color: white; border: none; border-radius: 9px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .15s, transform .1s; letter-spacing: .3px; }
+    .ana-btn:hover { background: var(--primary-dark); }
+    .ana-btn:active { transform: scale(.98); }
+    .ana-btn:disabled { background: #b0c4e8; cursor: not-allowed; }
+
+    /* ── Empty / Loading / Error ── */
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 40px; color: var(--text2); text-align: center; }
+    .empty-ico { font-size: 52px; margin-bottom: 16px; }
+    .empty-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .empty-sub { font-size: 13px; }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 100px; gap: 12px; color: var(--text2); font-size: 14px; }
+    .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .65s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err-box { background: #fce8e6; border: 1px solid #f5c6c4; border-radius: 10px; padding: 16px 18px; color: var(--red); font-size: 13px; margin: 16px 0; }
+
+    /* ── Results ── */
+    .results { display: flex; flex-direction: column; gap: 14px; }
+    .overview { display: flex; flex-wrap: wrap; gap: 7px; }
+    .otag { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--text2); box-shadow: var(--shadow); }
+    .otag strong { color: var(--text); }
+
+    /* ── Metrics grid ── */
+    .mgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; }
+    .mc { background: var(--card); border-radius: var(--r); padding: 18px 16px; box-shadow: var(--shadow); text-align: center; }
+    .mc-label { font-size: 11px; color: var(--text2); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+    .mc-val { font-size: 30px; font-weight: 800; line-height: 1.1; margin-bottom: 3px; }
+    .mc-sub { font-size: 10px; color: var(--text2); }
+    .blue { color: var(--primary); }
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    .neutral { color: var(--text); }
+
+    /* ── Chart cards ── */
+    .ccrd { background: var(--card); border-radius: var(--r); padding: 18px; box-shadow: var(--shadow); }
+    .ctitle { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; color: var(--text); }
+    .ch-wrap { position: relative; height: 270px; }
+    .ch-wrap-sm { position: relative; height: 210px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ── Correlation table ── */
+    .corr-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .corr-tbl th, .corr-tbl td { padding: 7px 9px; text-align: center; border: 1px solid var(--border); }
+    .corr-tbl th { background: var(--bg); font-weight: 700; font-size: 11px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1200px) { .mgrid { grid-template-columns: repeat(2, 1fr); } .two-col { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) { .layout { flex-direction: column; } .sidebar { width: 100%; } }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <span style="font-size:22px">📊</span>
+  <h1>Portfolio Analyzer</h1>
+  <span class="hdr-badge">A股组合分析</span>
+</div>
+
+<div class="layout">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <div class="card-title">股票配置</div>
+      <div id="slist"></div>
+      <div class="row-acts">
+        <button class="lnk" onclick="addRow()">＋ 添加股票</button>
+        <button class="lnk grey" onclick="equalWeights()">等权重</button>
+      </div>
+      <div class="wt-total" id="wt-total"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">分析区间</div>
+      <div class="drow">
+        <label>开始</label>
+        <input type="date" id="start-date" value="2023-01-01">
+      </div>
+      <div class="dgap"></div>
+      <div class="drow">
+        <label>结束</label>
+        <input type="date" id="end-date">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">分析选项</div>
+
+      <div class="opt-row">
+        <div class="opt-label">基准指数</div>
+        <select id="idx-sym">
+          <option value="sh000001">上证指数</option>
+          <option value="sh000300">沪深300</option>
+          <option value="sz399001">深证成指</option>
+          <option value="sz399006">创业板指</option>
+        </select>
+      </div>
+
+      <div class="opt-row">
+        <div>
+          <div class="opt-label">小波分解</div>
+          <div class="opt-sub">波动来源频段拆分</div>
+        </div>
+        <button class="toggle on" id="wv-tog" onclick="toggleOpt('wv-tog','wv-method-row')"></button>
+      </div>
+      <div class="opt-row" id="wv-method-row">
+        <div class="opt-label">小波方法</div>
+        <select id="wv-method">
+          <option value="modwt">MODWT（精准）</option>
+          <option value="cwt">CWT（连续）</option>
+        </select>
+      </div>
+
+      <div class="opt-row">
+        <div>
+          <div class="opt-label">净值曲线</div>
+          <div class="opt-sub">显示组合 NAV 走势</div>
+        </div>
+        <button class="toggle on" id="nav-tog" onclick="toggleOpt('nav-tog',null)"></button>
+      </div>
+    </div>
+
+    <button class="ana-btn" id="ana-btn" onclick="runAnalyze()">开始分析</button>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main" id="main">
+    <div class="empty" id="empty-state">
+      <div class="empty-ico">📈</div>
+      <div class="empty-title">输入股票代码，开始分析</div>
+      <div class="empty-sub">支持沪深 A 股代码，如 000001、600519、300750</div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let rows = [
+  { code: '000001', wt: '' },
+  { code: '600519', wt: '' },
+  { code: '300750', wt: '' },
+];
+let charts = {};
+let allStocks = [];   // [{code, name, pinyin}]，页面加载后填充
+let acTimers = {};
+let acSel = {};       // active index per row
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('end-date').value = new Date().toISOString().split('T')[0];
+  renderRows();
+  // 异步拉取全量股票（用于客户端搜索）
+  try {
+    const res = await fetch('/stocks/all');
+    const data = await res.json();
+    allStocks = data.stocks || [];
+  } catch (e) {
+    console.warn('股票列表加载失败:', e);
+  }
+});
+
+// ── Rows ──────────────────────────────────────────────────────────────────────
+function renderRows() {
+  const c = document.getElementById('slist');
+  c.innerHTML = '';
+  rows.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'srow';
+    d.innerHTML = `
+      <div class="code-wrap">
+        <input class="code-input" id="ci-${i}" type="text" placeholder="股票代码" value="${r.code}"
+          oninput="onCI(${i},this.value)" onblur="hideAC(${i})" onkeydown="acKey(event,${i})" maxlength="6" autocomplete="off">
+        <div class="ac-list" id="ac-${i}"></div>
+      </div>
+      <input class="wt-input" id="wi-${i}" type="number" min="0" max="100" step="0.1"
+        placeholder="--" value="${r.wt}" oninput="onWI(${i},this.value)">
+      <span class="wt-sfx">%</span>
+      <button class="del-btn" onclick="delRow(${i})" ${rows.length === 1 ? 'disabled' : ''}>×</button>
+    `;
+    c.appendChild(d);
+  });
+  updateWtTotal();
+}
+
+function addRow() {
+  rows.push({ code: '', wt: '' });
+  renderRows();
+  setTimeout(() => document.getElementById(`ci-${rows.length - 1}`)?.focus(), 40);
+}
+
+function delRow(i) {
+  if (rows.length <= 1) return;
+  rows.splice(i, 1);
+  renderRows();
+}
+
+function equalWeights() {
+  rows.forEach(r => r.wt = '');
+  renderRows();
+}
+
+function onCI(i, v) {
+  rows[i].code = v.trim();
+  if (v.length >= 2) fetchAC(i, v); else hideAC(i);
+}
+
+function onWI(i, v) {
+  rows[i].wt = v;
+  updateWtTotal();
+}
+
+function updateWtTotal() {
+  const active = rows.filter(r => r.code.trim());
+  const anyWt = active.some(r => r.wt !== '');
+  const el = document.getElementById('wt-total');
+  if (!anyWt) { el.textContent = '未填写权重将自动等权'; el.className = 'wt-total'; return; }
+  const total = active.reduce((s, r) => s + (parseFloat(r.wt) || 0), 0);
+  const p = total.toFixed(1);
+  if (Math.abs(total - 100) < 0.5) {
+    el.textContent = `权重合计：${p}% ✓`; el.className = 'wt-total ok';
+  } else {
+    el.textContent = `权重合计：${p}%（将自动归一化）`; el.className = 'wt-total warn';
+  }
+}
+
+// ── Autocomplete（客户端搜索：代码前缀 / 名称包含 / 拼音首字母前缀）─────────────
+function fetchAC(i, query) {
+  clearTimeout(acTimers[i]);
+  acTimers[i] = setTimeout(() => {
+    if (!allStocks.length) return;
+    const q = query.toLowerCase().trim();
+    const hits = [];
+    for (const s of allStocks) {
+      if (s.code.startsWith(q) || s.name.includes(q) || s.pinyin.startsWith(q)) {
+        hits.push(s);
+        if (hits.length >= 12) break;
+      }
+    }
+    showAC(i, hits);
+  }, 80);
+}
+
+function showAC(i, items) {
+  const el = document.getElementById(`ac-${i}`);
+  if (!el || !items.length) { hideAC(i); return; }
+  acSel[i] = -1;
+  el.innerHTML = items.map((s, j) =>
+    `<div class="ac-item" data-j="${j}" onmousedown="pickAC(${i},'${s.code}')">` +
+    `<span class="ac-code">${s.code}</span><span class="ac-name">${s.name}</span></div>`
+  ).join('');
+  el.style.display = 'block';
+}
+
+function hideAC(i) {
+  const el = document.getElementById(`ac-${i}`);
+  if (el) { setTimeout(() => el.style.display = 'none', 150); }
+}
+
+function pickAC(i, code) {
+  rows[i].code = code;
+  const inp = document.getElementById(`ci-${i}`);
+  if (inp) inp.value = code;
+  const el = document.getElementById(`ac-${i}`);
+  if (el) el.style.display = 'none';
+}
+
+function acKey(e, i) {
+  const el = document.getElementById(`ac-${i}`);
+  if (!el || el.style.display === 'none') return;
+  const items = el.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acSel[i] = Math.min((acSel[i] ?? -1) + 1, items.length - 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acSel[i] = Math.max((acSel[i] ?? 0) - 1, 0); }
+  else if (e.key === 'Enter') { e.preventDefault(); if ((acSel[i] ?? -1) >= 0) { pickAC(i, items[acSel[i]].textContent.trim()); } return; }
+  else if (e.key === 'Escape') { el.style.display = 'none'; return; }
+  items.forEach((it, j) => it.classList.toggle('active', j === acSel[i]));
+}
+
+// ── Toggles ───────────────────────────────────────────────────────────────────
+function toggleOpt(btnId, depRowId) {
+  const btn = document.getElementById(btnId);
+  btn.classList.toggle('on');
+  if (depRowId) {
+    document.getElementById(depRowId).style.opacity = btn.classList.contains('on') ? '1' : '.35';
+  }
+}
+
+function optOn(id) { return document.getElementById(id).classList.contains('on'); }
+
+// ── Analyze ───────────────────────────────────────────────────────────────────
+async function runAnalyze() {
+  const active = rows.filter(r => r.code.trim());
+  if (!active.length) { alert('请至少输入一只股票代码'); return; }
+  const codes = active.map(r => r.code.trim());
+
+  const start = document.getElementById('start-date').value;
+  const end   = document.getElementById('end-date').value;
+  if (!start) { alert('请填写开始日期'); return; }
+
+  const anyWt = active.some(r => r.wt !== '');
+  let weights = null;
+  if (anyWt) {
+    weights = active.map(r => { const w = parseFloat(r.wt || '0'); return isNaN(w) ? 0 : w / 100; });
+  }
+
+  const payload = {
+    codes, weights, start,
+    end: end || undefined,
+    no_wavelet: !optOn('wv-tog'),
+    include_nav: optOn('nav-tog'),
+    wavelet_method: document.getElementById('wv-method').value,
+    index_symbol:   document.getElementById('idx-sym').value,
+  };
+
+  setMain(`<div class="loading"><div class="spinner"></div>分析中，请稍候…</div>`);
+  document.getElementById('ana-btn').disabled = true;
+
+  try {
+    const res = await fetch('/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      setMain(`<div class="err-box">❌ ${e.detail || JSON.stringify(e)}</div>`);
+      return;
+    }
+    renderResults(await res.json());
+  } catch (e) {
+    setMain(`<div class="err-box">❌ 网络错误：${e.message}</div>`);
+  } finally {
+    document.getElementById('ana-btn').disabled = false;
+  }
+}
+
+function setMain(html) {
+  document.getElementById('main').innerHTML = html;
+  // destroy old charts
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResults(data) {
+  const { portfolio, metrics, correlation, wavelet, nav } = data;
+
+  const bottomLeft  = wavelet?.bands
+    ? `<div class="ccrd" id="wv-card"><div class="ctitle">🌊 波动来源分解</div><div class="ch-wrap-sm"><canvas id="wv-ch"></canvas></div></div>`
+    : '';
+  const bottomRight = correlation
+    ? `<div class="ccrd" id="corr-card"><div class="ctitle">🔗 个股相关性</div><div id="corr-body" style="overflow-x:auto"></div></div>`
+    : '';
+  const showBottom  = bottomLeft || bottomRight;
+
+  setMain(`
+    <div class="results">
+      <div class="overview" id="ov"></div>
+      <div class="mgrid"    id="mg"></div>
+      ${nav ? `<div class="ccrd"><div class="ctitle">📈 净值曲线</div><div class="ch-wrap"><canvas id="nav-ch"></canvas></div></div>` : ''}
+      ${showBottom ? `<div class="two-col">${bottomLeft}${bottomRight}</div>` : ''}
+    </div>
+  `);
+
+  renderOverview(portfolio, metrics);
+  renderMetrics(metrics);
+  if (nav) renderNAV(nav);
+  if (wavelet?.bands) renderWavelet(wavelet);
+  if (correlation) renderCorr(correlation, portfolio.codes, portfolio.names);
+}
+
+function renderOverview(p, m) {
+  const el = document.getElementById('ov');
+  if (!el) return;
+  const stocks = p.codes.map((c, i) => {
+    const name = (p.names && p.names[c]) ? p.names[c] : '';
+    const label = name ? `<strong>${c}</strong> <span style="color:var(--text2);font-size:11px">${name}</span>` : `<strong>${c}</strong>`;
+    return `${label} <span style="color:var(--text2)">${(p.weights[i]*100).toFixed(1)}%</span>`;
+  }).join(' &nbsp;·&nbsp; ');
+  el.innerHTML = `
+    <div class="otag">📅 <strong>${p.start}</strong> → <strong>${p.end}</strong></div>
+    <div class="otag">🗓 <strong>${p.trading_days}</strong> 个交易日</div>
+    <div class="otag">📌 ${stocks}</div>
+  `;
+}
+
+function renderMetrics(m) {
+  const el = document.getElementById('mg');
+  if (!el) return;
+  const vol  = m.volatility   != null ? (m.volatility * 100).toFixed(2) + '%' : 'N/A';
+  const mdd  = m.max_drawdown != null ? (m.max_drawdown * 100).toFixed(2) + '%' : 'N/A';
+  const mcdd = m.max_consecutive_down_days ?? 'N/A';
+  const bv   = m.beta != null ? m.beta.toFixed(3) : 'N/A';
+  const bClr = m.beta == null ? 'neutral' : m.beta > 1.2 ? 'red' : m.beta < 0.7 ? 'green' : 'neutral';
+  el.innerHTML = `
+    <div class="mc"><div class="mc-label">年化波动率</div><div class="mc-val blue">${vol}</div><div class="mc-sub">std × √252</div></div>
+    <div class="mc"><div class="mc-label">最大回撤</div><div class="mc-val red">${mdd}</div><div class="mc-sub">峰谷跌幅</div></div>
+    <div class="mc"><div class="mc-label">最长连续下跌</div><div class="mc-val ${typeof mcdd==='number'&&mcdd>7?'red':'neutral'}">${mcdd}</div><div class="mc-sub">交易日</div></div>
+    <div class="mc"><div class="mc-label">Beta 系数</div><div class="mc-val ${bClr}">${bv}</div><div class="mc-sub">${m.beta_index||'sh000001'}</div></div>
+  `;
+}
+
+function renderNAV(nav) {
+  const canvas = document.getElementById('nav-ch');
+  if (!canvas) return;
+  const dates = Object.keys(nav).sort();
+  const vals  = dates.map(d => nav[d]);
+  charts.nav = new Chart(canvas, {
+    type: 'line',
+    data: { labels: dates, datasets: [{
+      label: '组合净值', data: vals,
+      borderColor: '#1a73e8', backgroundColor: 'rgba(26,115,232,.07)',
+      borderWidth: 2, pointRadius: 0, fill: true, tension: 0.15,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false,
+        callbacks: { label: ctx => `净值: ${ctx.raw.toFixed(4)}` }
+      }},
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+      },
+    },
+  });
+}
+
+function renderWavelet(wavelet) {
+  const canvas = document.getElementById('wv-ch');
+  if (!canvas) return;
+  const bands = wavelet.bands;
+  const idxBands = wavelet.index_bands;
+  const labelMap = {
+    noise: '噪声\n1-4天', weekly: '周频\n4-8天', biweekly: '双周\n8-16天',
+    monthly: '月频\n16-64天', trend: '长期\n>64天',
+  };
+  const keys   = Object.keys(bands);
+  const labels = keys.map(k => labelMap[k] || k);
+  const vals   = keys.map(k => bands[k]);
+
+  const datasets = [{
+    label: '组合',
+    data: vals,
+    backgroundColor: 'rgba(26,115,232,.82)',
+    borderRadius: 4,
+  }];
+
+  if (idxBands) {
+    const idxSymbolLabel = wavelet.index_symbol || '指数';
+    datasets.push({
+      label: idxSymbolLabel === 'sh000001' ? '上证指数' : idxSymbolLabel,
+      data: keys.map(k => idxBands[k] ?? 0),
+      backgroundColor: 'rgba(160,160,160,.55)',
+      borderRadius: 4,
+    });
+  }
+
+  charts.wv = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: !!idxBands, position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.raw.toFixed(1)}%` } },
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 0 }, grid: { display: false } },
+        y: { max: 100, ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f0f0f0' } },
+      },
+    },
+  });
+}
+
+function renderCorr(corr, codes, names) {
+  const el = document.getElementById('corr-body');
+  if (!el) return;
+  const keys = codes.filter(c => corr[c]);
+  const label = c => names?.[c] ? `${c}<br><span style="font-weight:400;font-size:10px;color:var(--text2)">${names[c]}</span>` : c;
+  if (keys.length < 2) { el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:12px 0">需要至少 2 只股票</div>'; return; }
+  function bg(v) {
+    if (v === null) return '#f8f9fa';
+    const a = Math.abs(v) * 0.65;
+    return v >= 0 ? `rgba(26,115,232,${a})` : `rgba(234,67,53,${a})`;
+  }
+  let h = '<table class="corr-tbl"><thead><tr><th></th>';
+  keys.forEach(k => h += `<th>${label(k)}</th>`);
+  h += '</tr></thead><tbody>';
+  keys.forEach(row => {
+    h += `<tr><th>${label(row)}</th>`;
+    keys.forEach(col => {
+      const v = row === col ? 1.0 : (corr[row]?.[col] ?? null);
+      h += `<td style="background:${bg(v)};color:${row===col?'var(--text2)':'var(--text)'}">${row===col?'—':v!=null?v.toFixed(3):'N/A'}</td>`;
+    });
+    h += '</tr>';
+  });
+  el.innerHTML = h + '</tbody></table>';
+}
+</script>
+</body>
+</html>
