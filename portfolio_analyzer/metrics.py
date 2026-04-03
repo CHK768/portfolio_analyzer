@@ -4,6 +4,7 @@
 - 最大回撤
 - 最大连续下跌天数
 - Beta 系数（vs 基准指数）
+- Alpha（Jensen's Alpha，vs 基准指数）
 - 个股相关性矩阵
 """
 
@@ -66,6 +67,44 @@ def beta(
         return float("nan")
     cov_mat = combined.cov()
     return float(cov_mat.iloc[0, 1] / cov_mat.iloc[1, 1])
+
+
+def alpha(
+    portfolio_returns: pd.Series,
+    index_returns: pd.Series,
+    risk_free_rate: float = 0.0,
+    trading_days: int = 252,
+    min_periods: int = 20,
+) -> float:
+    """
+    Jensen's Alpha（年化）= R_p - [R_f + Beta × (R_m - R_f)]
+
+    Parameters:
+        portfolio_returns: 组合日收益率
+        index_returns:     基准指数日收益率
+        risk_free_rate:    年化无风险利率（默认 0，A 股常用 2-3%）
+        trading_days:      年化交易日数
+        min_periods:       最少公共数据点，不足时返回 nan
+
+    Returns:
+        年化 Alpha（如 0.05 表示超额年化收益 5%）
+    """
+    rp, rm = portfolio_returns.align(index_returns, join="inner")
+    combined = pd.concat([rp, rm], axis=1).dropna()
+    if len(combined) < min_periods:
+        return float("nan")
+
+    rp_clean = combined.iloc[:, 0]
+    rm_clean = combined.iloc[:, 1]
+
+    cov_mat = combined.cov()
+    beta_val = float(cov_mat.iloc[0, 1] / cov_mat.iloc[1, 1])
+
+    rf_daily = risk_free_rate / trading_days
+    ann_rp = float((1 + rp_clean.mean()) ** trading_days - 1)
+    ann_rm = float((1 + rm_clean.mean()) ** trading_days - 1)
+
+    return ann_rp - (risk_free_rate + beta_val * (ann_rm - risk_free_rate))
 
 
 def correlation_matrix(individual_rets: pd.DataFrame) -> pd.DataFrame:
