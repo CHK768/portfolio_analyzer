@@ -108,7 +108,7 @@
     .otag strong { color: var(--text); }
 
     /* ── Metrics grid ── */
-    .mgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; }
+    .mgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px; }
     .mc { background: var(--card); border-radius: var(--r); padding: 18px 16px; box-shadow: var(--shadow); text-align: center; }
     .mc-label { font-size: 11px; color: var(--text2); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
     .mc-val { font-size: 30px; font-weight: 800; line-height: 1.1; margin-bottom: 3px; }
@@ -131,6 +131,7 @@
     .corr-tbl th { background: var(--bg); font-weight: 700; font-size: 11px; }
 
     /* ── Responsive ── */
+    @media (max-width: 1400px) { .mgrid { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 1200px) { .mgrid { grid-template-columns: repeat(2, 1fr); } .two-col { grid-template-columns: 1fr; } }
     @media (max-width: 860px) { .layout { flex-direction: column; } .sidebar { width: 100%; } }
   </style>
@@ -477,13 +478,16 @@ function renderMetrics(m) {
   const vol  = m.volatility   != null ? (m.volatility * 100).toFixed(2) + '%' : 'N/A';
   const mdd  = m.max_drawdown != null ? (m.max_drawdown * 100).toFixed(2) + '%' : 'N/A';
   const mcdd = m.max_consecutive_down_days ?? 'N/A';
-  const bv   = m.beta != null ? m.beta.toFixed(3) : 'N/A';
-  const bClr = m.beta == null ? 'neutral' : m.beta > 1.2 ? 'red' : m.beta < 0.7 ? 'green' : 'neutral';
+  const bv   = m.beta  != null ? m.beta.toFixed(3)  : 'N/A';
+  const av   = m.alpha != null ? (m.alpha * 100).toFixed(2) + '%' : 'N/A';
+  const bClr = m.beta  == null ? 'neutral' : m.beta > 1.2 ? 'red' : m.beta < 0.7 ? 'green' : 'neutral';
+  const aClr = m.alpha == null ? 'neutral' : m.alpha > 0 ? 'green' : 'red';
   el.innerHTML = `
     <div class="mc"><div class="mc-label">年化波动率</div><div class="mc-val blue">${vol}</div><div class="mc-sub">std × √252</div></div>
     <div class="mc"><div class="mc-label">最大回撤</div><div class="mc-val red">${mdd}</div><div class="mc-sub">峰谷跌幅</div></div>
     <div class="mc"><div class="mc-label">最长连续下跌</div><div class="mc-val ${typeof mcdd==='number'&&mcdd>7?'red':'neutral'}">${mcdd}</div><div class="mc-sub">交易日</div></div>
-    <div class="mc"><div class="mc-label">Beta 系数</div><div class="mc-val ${bClr}">${bv}</div><div class="mc-sub">${m.beta_index||'sh000001'}</div></div>
+    <div class="mc"><div class="mc-label">Beta</div><div class="mc-val ${bClr}">${bv}</div><div class="mc-sub">${m.beta_index||'sh000001'}</div></div>
+    <div class="mc"><div class="mc-label">Alpha</div><div class="mc-val ${aClr}">${av}</div><div class="mc-sub">Jensen's α</div></div>
   `;
 }
 
