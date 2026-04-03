@@ -24,6 +24,7 @@ from portfolio_analyzer.data_loader import (
     load_stocks_aligned,
 )
 from portfolio_analyzer.metrics import (
+    alpha,
     annualized_volatility,
     beta,
     correlation_matrix,
@@ -218,6 +219,7 @@ def analyze(req: AnalyzeRequest):
     mcdd = max_consecutive_down_days(port_returns)
 
     beta_val = float("nan")
+    alpha_val = float("nan")
     beta_error = None
     index_rets = None
     try:
@@ -228,6 +230,7 @@ def analyze(req: AnalyzeRequest):
         )
         index_rets = index_close.pct_change().dropna()
         beta_val = beta(port_returns, index_rets)
+        alpha_val = alpha(port_returns, index_rets)
     except Exception as e:
         beta_error = str(e)
         logger.warning(f"Beta 计算失败: {e}")
@@ -288,6 +291,7 @@ def analyze(req: AnalyzeRequest):
             "max_drawdown": _fmt(mdd),
             "max_consecutive_down_days": mcdd,
             "beta": _fmt(beta_val),
+            "alpha": _fmt(alpha_val),
             "beta_index": req.index_symbol,
             "beta_error": beta_error,
         },
